@@ -1,0 +1,28 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "dev",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      },
+      "problemMatcher": "$ts-webpack"
+    },
+    {
+      "type": "npm",
+      "script": "watch",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated"
+      },
+      "problemMatcher": "$ts-webpack-watch"
+    }
+  ]
+}

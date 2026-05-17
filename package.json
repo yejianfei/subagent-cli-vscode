@@ -1,0 +1,112 @@
+{
+  "name": "subagent-cli-vscode",
+  "displayName": "Subagent CLI",
+  "description": "Render subagent-cli child agent TUIs inside VS Code terminal tabs.",
+  "version": "0.1.0",
+  "publisher": "yejianfei-billy",
+  "private": true,
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yejianfei/subagent-cli-vscode.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0",
+    "node": ">=18"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "subagent-cli",
+    "claude-code",
+    "codex",
+    "tui",
+    "pseudoterminal"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "icon": "media/icon.png",
+  "l10n": "./l10n",
+  "contributes": {
+    "commands": [
+      {
+        "command": "subagent-cli.openViewer",
+        "title": "Open Viewer",
+        "category": "Subagent CLI"
+      }
+    ],
+    "configuration": {
+      "title": "Subagent CLI",
+      "properties": {
+        "subagent-cli.daemon.port": {
+          "type": "number",
+          "default": 7100,
+          "description": "Port the App daemon listens on. The extension uses this as the authoritative port when starting the daemon (passed via --port, overrides config.json)."
+        },
+        "subagent-cli.cli.path": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the `subagent-cli` executable. Leave empty to look it up on PATH. When set to an absolute path, its directory is also prepended to PATH in every new VS Code terminal — letting you just type `subagent-cli` and have it resolve to this build (overrides any globally installed copy). Useful for pointing at a local dist build (e.g. /abs/path/subagent-cli/dist/subagent-cli). Reopen existing terminals for the change to take effect."
+        },
+        "subagent-cli.viewer.browser": {
+          "type": "string",
+          "enum": [
+            "external",
+            "internal"
+          ],
+          "enumDescriptions": [
+            "Open the viewer in the system default browser",
+            "Open the viewer inside VS Code (webview)"
+          ],
+          "default": "external",
+          "description": "How to open the Subagent viewer when the status bar button is clicked."
+        },
+        "subagent-cli.terminal.location": {
+          "type": "string",
+          "enum": [
+            "panel",
+            "editor"
+          ],
+          "enumDescriptions": [
+            "Open in the terminal panel area (bottom)",
+            "Open as a tab in the editor (document) area"
+          ],
+          "default": "panel",
+          "description": "Where subagent session terminals open: the terminal panel, or the editor/document tab area."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "webpack --mode production",
+    "test": "node --import tsx --test test/*.test.ts",
+    "dev": "webpack --mode development",
+    "watch": "webpack --mode development --watch",
+    "icon": "rsvg-convert -w 256 -h 256 media/icon.svg -o media/icon.png",
+    "prepackage": "node -e \"if(+process.versions.node.split('.')[0]<20){console.error('\\n[subagent-cli-vscode] Packaging/publishing needs Node >= 20 (vsce deps require global File). Run: nvm use 20\\n');process.exit(1)}\" && npm run icon",
+    "package": "vsce package -o subagent-cli-vscode.vsix",
+    "publish": "dotenv -- npm run publish:both",
+    "publish:both": "npm run package && vsce publish --packagePath subagent-cli-vscode.vsix && ovsx publish subagent-cli-vscode.vsix",
+    "vscode:prepublish": "npm run build",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.5.10",
+    "@vscode/vsce": "^3.2.1",
+    "dotenv-cli": "^7.4.4",
+    "ovsx": "^0.10.1",
+    "ts-loader": "^9.5.1",
+    "tsx": "^4.22.0",
+    "typescript": "^5.4.0",
+    "webpack": "^5.90.0",
+    "webpack-cli": "^5.1.4"
+  }
+}

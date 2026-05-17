@@ -1,0 +1,21 @@
+{
+  "Subagent CLI: IPC socket may change after reload. Click Relaunch if a terminal becomes stale.": "Subagent CLI：扩展重载后 IPC socket 可能变化，终端失效时点击\"重启\"即可。",
+  "Another VS Code window owns Subagent CLI for this workspace. This window uses a fallback socket — existing terminals here cannot auto-open VS Code tabs.": "同一工作区的另一个 VS Code 窗口已占用 Subagent CLI。本窗口使用临时 socket，已有终端无法自动开启 VS Code 终端。",
+  "Failed to bind Subagent CLI IPC socket.": "无法绑定 Subagent CLI IPC socket。",
+  "Open Subagent viewer": "打开 Subagent 查看器",
+  "Subagent Viewer": "Subagent 查看器",
+  "Subagent Sessions": "Subagent 会话",
+  "Refresh": "刷新",
+  "Loading…": "加载中…",
+  "No active sessions.": "暂无活动会话。",
+  "Error": "错误",
+  "just now": "刚刚",
+  "{0}m ago": "{0} 分钟前",
+  "{0}h ago": "{0} 小时前",
+  "INIT": "初始化中",
+  "Subagent CLI not found. Click for installation instructions.": "未找到 subagent-cli，点击查看安装说明。",
+  "Subagent CLI version too low (need ≥ {0}, found {1}). Click for upgrade instructions.": "subagent-cli 版本过低（需要 ≥ {0}，当前 {1}），点击查看升级说明。",
+  "Subagent: CLI not installed": "Subagent：CLI 未安装",
+  "Subagent: CLI v{0} too old": "Subagent：CLI v{0} 版本过旧",
+  "Failed to start daemon: {0}": "启动 daemon 失败：{0}"
+}

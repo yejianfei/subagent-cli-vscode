@@ -1,0 +1,16 @@
+.env
+.env.local
+.claude/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+node_modules/
+dist/
+out/
+*.vsix
+*.log
+media/icon.png
+.DS_Store
+.vscode-test/
+tmp/
