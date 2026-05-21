@@ -71,7 +71,11 @@ export class SessionTerminal {
     const wsUrl = `ws://127.0.0.1:${this.opts.port}/ws?session=${encodeURIComponent(sessionId)}&client=${encodeURIComponent(this.opts.clientId)}`
     const ws = new WSClient(wsUrl)
     ws.onMessage((data) => this.writeEmitter.fire(data))
-    ws.onClose(() => this.writeEmitter.fire('\r\n[Session disconnected]\r\n'))
+    // When the daemon closes the session (CLI `close`, /exit inside the TUI,
+    // daemon shutdown, etc.) it drops the ws. Tear down this terminal so the
+    // tab doesn't linger in sessionTerminals and trick future `open --session`
+    // dedup into focusing a dead tab.
+    ws.onClose(() => this.dispose())
     // Send current terminal dimensions as soon as ws is up so daemon redraws
     // the snapshot at the right size (otherwise replay uses stale PTY dims).
     ws.onOpen(() => {

@@ -1,6 +1,6 @@
 # Subagent CLI for VS Code
 
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/yejianfei-billy.subagent-cli-vscode?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=yejianfei-billy.subagent-cli-vscode)
+[![VS Code Marketplace](https://badgen.net/vs-marketplace/v/yejianfei-billy.subagent-cli-vscode?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=yejianfei-billy.subagent-cli-vscode)
 [![Open VSX](https://img.shields.io/open-vsx/v/yejianfei-billy/subagent-cli-vscode?label=Open%20VSX)](https://open-vsx.org/extension/yejianfei-billy/subagent-cli-vscode)
 [![npm](https://img.shields.io/npm/v/@yejianfei.billy/subagent-cli?label=npm)](https://www.npmjs.com/package/@yejianfei.billy/subagent-cli)
 

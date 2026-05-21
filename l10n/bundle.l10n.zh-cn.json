@@ -3,6 +3,7 @@
   "Another VS Code window owns Subagent CLI for this workspace. This window uses a fallback socket — existing terminals here cannot auto-open VS Code tabs.": "同一工作区的另一个 VS Code 窗口已占用 Subagent CLI。本窗口使用临时 socket，已有终端无法自动开启 VS Code 终端。",
   "Failed to bind Subagent CLI IPC socket.": "无法绑定 Subagent CLI IPC socket。",
   "Open Subagent viewer": "打开 Subagent 查看器",
+  "Open Subagent viewer ({0} running)": "打开 Subagent 查看器（{0} 个运行中）",
   "Subagent Viewer": "Subagent 查看器",
   "Subagent Sessions": "Subagent 会话",
   "Refresh": "刷新",

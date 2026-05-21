@@ -5,6 +5,7 @@ import * as vscode from 'vscode'
 import { checkCli, type CliHealth } from './cli_health'
 import { ensureDaemon } from './daemon_launcher'
 import { IPCServer, type IpcDeps } from './ipc_server'
+import { makeCreatePendingTerminal } from './pending_terminal_factory'
 import { SessionTerminal } from './session_terminal'
 import { cleanupOrphanSockets, deriveUuid, getSocketPath, probeSocket } from './socket_paths'
 import { InternalViewer, type SessionListItem } from './webview_viewer'
@@ -161,6 +162,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     return items.map((s) => ({ ...s, attached: sessionTerminals.has(s.session) }))
   }
 
+  // Look up the daemon-recorded subagent name for a session. Used when the
+  // CLI's `prepareTerminal` didn't include one (e.g. `subagent-cli open
+  // --session $SID` falls back to the literal default "subagent"), so the
+  // VS Code terminal tab name reflects the real adapter rather than that
+  // default placeholder.
+  const resolveSubagentName = async (sessionId: string): Promise<string | undefined> => {
+    try {
+      const sessions = await fetchSessions()
+      return sessions.find((s) => s.session === sessionId)?.subagent
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      log(`resolveSubagentName: lookup failed for ${sessionId}: ${message}`)
+      return undefined
+    }
+  }
+
   let internalViewer: InternalViewer | undefined
   context.subscriptions.push({
     dispose: () => {
@@ -172,19 +189,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     ensureDaemon,
     getDaemonPort: () =>
       vscode.workspace.getConfiguration('subagent-cli').get<number>('daemon.port', 7100),
-    createPendingTerminal: (opts) => {
-      const term = buildSessionTerminal(opts.clientId, opts.subagent)
-      return {
-        attach: (sessionId) => {
-          term.attach(sessionId)
-          trackSession(sessionId, term)
-        },
-        onDispose: (cb) => {
-          term.onDispose(cb)
-        },
-        dispose: () => term.dispose(),
-      }
-    },
+    createPendingTerminal: makeCreatePendingTerminal({
+      sessionTerminals,
+      buildSessionTerminal,
+      trackSession,
+      resolveSubagentName,
+      log,
+    }),
     log,
   }
 
@@ -218,35 +229,73 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(statusBar)
 
   let currentHealth: CliHealth = { status: 'not-found' }
+  let runningCount = 0
 
-  const applyHealth = (health: CliHealth): void => {
-    if (health.status === 'ok') {
-      statusBar.text = '$(eye) Subagent'
-      statusBar.tooltip = vscode.l10n.t('Open Subagent viewer')
+  const updateStatusBar = (): void => {
+    if (currentHealth.status === 'ok') {
+      const suffix = runningCount > 0 ? ` (${runningCount})` : ''
+      statusBar.text = `$(eye) Subagent${suffix}`
+      statusBar.tooltip =
+        runningCount > 0
+          ? vscode.l10n.t('Open Subagent viewer ({0} running)', runningCount)
+          : vscode.l10n.t('Open Subagent viewer')
       statusBar.backgroundColor = undefined
+      // Color the whole pill green when this window has RUNNING sessions so
+      // the count stands out at a glance. VS Code status bar API can't style
+      // a sub-range, so we tint the whole item.
+      statusBar.color = runningCount > 0 ? new vscode.ThemeColor('charts.green') : undefined
       return
     }
+    statusBar.color = undefined
     statusBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground')
-    if (health.status === 'not-found') {
+    if (currentHealth.status === 'not-found') {
       statusBar.text = `$(warning) ${vscode.l10n.t('Subagent: CLI not installed')}`
       statusBar.tooltip = vscode.l10n.t(
         'Subagent CLI not found. Click for installation instructions.',
       )
       return
     }
-    statusBar.text = `$(warning) ${vscode.l10n.t('Subagent: CLI v{0} too old', health.version ?? '?')}`
+    statusBar.text = `$(warning) ${vscode.l10n.t('Subagent: CLI v{0} too old', currentHealth.version ?? '?')}`
     statusBar.tooltip = vscode.l10n.t(
       'Subagent CLI version too low (need ≥ {0}, found {1}). Click for upgrade instructions.',
       MIN_CLI_VERSION,
-      health.version ?? '?',
+      currentHealth.version ?? '?',
     )
+  }
+
+  // Poll daemon for session states and count RUNNING ones owned by this
+  // window. Skip the HTTP when we own zero terminals (the count is trivially
+  // zero) so idle windows don't ping the daemon.
+  const pollRunningCount = async (): Promise<void> => {
+    if (currentHealth.status !== 'ok') return
+    if (sessionTerminals.size === 0) {
+      if (runningCount !== 0) {
+        runningCount = 0
+        updateStatusBar()
+      }
+      return
+    }
+    try {
+      const sessions = await fetchSessions()
+      const count = sessions.filter(
+        (s) => sessionTerminals.has(s.session) && s.state === 'RUNNING',
+      ).length
+      if (count !== runningCount) {
+        runningCount = count
+        updateStatusBar()
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      log(`pollRunningCount: ${message}`)
+    }
   }
 
   const refreshHealth = async (): Promise<void> => {
     const cliPath = vscode.workspace.getConfiguration('subagent-cli').get<string>('cli.path', '')
     currentHealth = await checkCli(cliPath, MIN_CLI_VERSION)
     log(`cli health: status=${currentHealth.status} version=${currentHealth.version ?? '?'}`)
-    applyHealth(currentHealth)
+    updateStatusBar()
+    void pollRunningCount()
   }
 
   const viewerCmd = vscode.commands.registerCommand('subagent-cli.openViewer', async () => {
@@ -282,6 +331,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(viewerCmd)
 
   await refreshHealth()
+
+  // Periodically refresh the RUNNING count for this window. Errors are caught
+  // inside pollRunningCount itself so a transient daemon outage doesn't crash
+  // the interval; the badge just keeps showing the last known value.
+  const pollHandle = setInterval(() => void pollRunningCount(), 5000)
+  context.subscriptions.push({ dispose: () => clearInterval(pollHandle) })
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {

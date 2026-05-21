@@ -2,7 +2,7 @@
   "name": "subagent-cli-vscode",
   "displayName": "Subagent CLI",
   "description": "Render subagent-cli child agent TUIs inside VS Code terminal tabs.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "yejianfei-billy",
   "private": true,
   "license": "Apache-2.0",
@@ -15,14 +15,21 @@
     "node": ">=18"
   },
   "categories": [
+    "AI",
     "Other"
   ],
   "keywords": [
     "subagent-cli",
+    "subagent",
+    "claude",
     "claude-code",
     "codex",
-    "tui",
-    "pseudoterminal"
+    "gemini",
+    "gemini-cli",
+    "ai-agent",
+    "multi-agent",
+    "agent-orchestration",
+    "terminal"
   ],
   "activationEvents": [
     "onStartupFinished"
