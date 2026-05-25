@@ -42,7 +42,9 @@ export function probeSocket(socketPath: string, timeoutMs = 200): Promise<boolea
 export async function cleanupOrphanSockets(dir: string = os.tmpdir()): Promise<void> {
   if (process.platform === 'win32') return // Named Pipes are kernel-managed
   const files = await fs.promises.readdir(dir).catch(() => [] as string[])
-  const candidates = files.filter((f) => /^subagent-cli_[0-9a-f]+\.sock$/.test(f))
+  // Matches both legacy `subagent-cli_<hash>.sock` and the current
+  // `subagent-cli_<hash>_<VSCODE_PID>.sock` naming.
+  const candidates = files.filter((f) => /^subagent-cli_[0-9a-f]+(_\d+)?\.sock$/.test(f))
 
   await Promise.all(
     candidates.map(async (file) => {

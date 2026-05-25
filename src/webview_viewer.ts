@@ -92,7 +92,6 @@ export class InternalViewer {
     const loadingLabel = vscode.l10n.t('Loading…')
     const emptyLabel = vscode.l10n.t('No active sessions.')
     const errorPrefix = vscode.l10n.t('Error')
-    const initLabel = JSON.stringify(vscode.l10n.t('INIT'))
     // i18n templates for relative-time formatter (replaced inside the webview JS).
     const tplJustNow = JSON.stringify(vscode.l10n.t('just now'))
     const tplMinAgo = JSON.stringify(vscode.l10n.t('{0}m ago'))
@@ -130,8 +129,6 @@ export class InternalViewer {
   .state-INIT { background: var(--vscode-charts-blue, #1e90ff); }
   .state-CLOSED { background: var(--vscode-charts-foreground, var(--vscode-descriptionForeground)); opacity: 0.7; }
   .state-ERROR { background: var(--vscode-charts-red, #d73a49); }
-  li.initing { cursor: default; }
-  li.initing:hover { background: transparent; }
 </style>
 </head>
 <body>
@@ -147,7 +144,6 @@ export class InternalViewer {
   const tplJustNow = ${tplJustNow};
   const tplMinAgo = ${tplMinAgo};
   const tplHourAgo = ${tplHourAgo};
-  const tplInit = ${initLabel};
   const escape = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const formatRel = (ts) => {
     if (!ts) return '';
@@ -171,22 +167,20 @@ export class InternalViewer {
       const cwd = s.cwd || '';
       const role = s.role || '';
       const closed = state === 'CLOSED';
-      // Daemon lists the session but this window's IPC handshake hasn't
-      // completed yet — clicking would open a duplicate terminal.
-      const initing = !closed && s.attached === false;
-      const cls = closed ? ' class="closed"' : (initing ? ' class="initing"' : '');
-      const stateLabel = initing ? tplInit : state;
-      const stateCls = initing ? 'INIT' : state;
+      // Show the daemon's real state. Clicking a not-yet-attached session is
+      // safe: both the viewer-open and the IPC handshake dedup against
+      // sessionTerminals, so no duplicate terminal is created.
+      const cls = closed ? ' class="closed"' : '';
       return '<li' + cls + ' data-id="' + escape(id) + '" data-sub="' + escape(sub) + '" data-state="' + escape(state) + '">' +
         '<span class="subagent">' + escape(sub) + '</span>' +
         '<span class="id">' + escape(id.slice(0, 8)) + '</span>' +
         '<span class="cwd" title="' + escape(cwd) + '">' + escape(cwd) + '</span>' +
         '<span class="role" title="' + escape(role) + '">' + escape(role) + '</span>' +
         '<span class="last">' + escape(formatRel(s.last_at)) + '</span>' +
-        (stateLabel ? '<span class="state state-' + escape(stateCls) + '">' + escape(stateLabel) + '</span>' : '') +
+        (state ? '<span class="state state-' + escape(state) + '">' + escape(state) + '</span>' : '') +
         '</li>';
     }).join('');
-    list.querySelectorAll('li[data-id]:not(.closed):not(.initing)').forEach(el => {
+    list.querySelectorAll('li[data-id]:not(.closed)').forEach(el => {
       el.addEventListener('click', () => vscode.postMessage({ type: 'open', sessionId: el.dataset.id, subagent: el.dataset.sub }));
     });
   };

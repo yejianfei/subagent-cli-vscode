@@ -18,5 +18,8 @@
   "Subagent CLI version too low (need ≥ {0}, found {1}). Click for upgrade instructions.": "subagent-cli 版本过低（需要 ≥ {0}，当前 {1}），点击查看升级说明。",
   "Subagent: CLI not installed": "Subagent：CLI 未安装",
   "Subagent: CLI v{0} too old": "Subagent：CLI v{0} 版本过旧",
-  "Failed to start daemon: {0}": "启动 daemon 失败：{0}"
+  "Failed to start daemon: {0}": "启动 daemon 失败：{0}",
+  "Subagent CLI {0} is available (current {1}).": "Subagent CLI {0} 可升级（当前 {1}）。",
+  "Upgrade": "升级",
+  "Later": "稍后"
 }

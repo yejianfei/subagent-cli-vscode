@@ -41,3 +41,23 @@ test(
     fs.rmSync(dir, { recursive: true, force: true })
   },
 )
+
+test(
+  'cleanupOrphanSockets matches the <hash>_<VSCODE_PID> naming',
+  { skip: process.platform === 'win32' },
+  async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-test-'))
+    // New naming: hash segment + _<pid> suffix, no listener → dead.
+    const deadWithPid = path.join(dir, 'subagent-cli_37696076_45764.sock')
+    fs.writeFileSync(deadWithPid, '')
+
+    await cleanupOrphanSockets(dir)
+
+    assert.equal(
+      fs.existsSync(deadWithPid),
+      false,
+      'dead pid-suffixed socket should be matched and removed',
+    )
+    fs.rmSync(dir, { recursive: true, force: true })
+  },
+)

@@ -2,6 +2,13 @@
 
 All notable changes to this extension will be documented in this file.
 
+## [0.1.2] - 2026-05-25
+
+- Socket name now encodes the editor's `VSCODE_PID` (`subagent-cli_<workspace-hash>_<pid>.sock`). When `SUBAGENT_VSCODE_IPC` isn't propagated to a spawned CLI (e.g. processes launched by Claude Code), the CLI can rediscover this window's socket by globbing `subagent-cli_*_<VSCODE_PID>.sock`. Requires a CLI build with glob fallback.
+- Session terminals are re-created after a window reload (`Cmd+R`). The socket name is stable across reloads, so the daemon still scopes the same sessions to this window; a fresh editor launch gets a new pid and won't resurrect old terminals.
+- On startup the extension checks npm for a newer `subagent-cli` release and offers to upgrade (opens a terminal running the global install). Skipped when `cli.path` is set or the CLI is unhealthy; "Later" is remembered per version. Toggle with the new `subagent-cli.checkForUpdates` setting.
+- Viewer now shows the daemon's real session state instead of masking not-yet-attached sessions as `INIT`; clicking them is safe because both paths dedup against existing terminals.
+
 ## [0.1.1] - 2026-05-18
 
 - Status bar shows a colored RUNNING count for sessions owned by this window. Polled every 5s; only triggers HTTP when the window owns at least one terminal.

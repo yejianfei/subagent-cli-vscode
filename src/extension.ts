@@ -2,7 +2,7 @@ import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as vscode from 'vscode'
-import { checkCli, type CliHealth } from './cli_health'
+import { checkCli, compareSemver, type CliHealth } from './cli_health'
 import { ensureDaemon } from './daemon_launcher'
 import { IPCServer, type IpcDeps } from './ipc_server'
 import { makeCreatePendingTerminal } from './pending_terminal_factory'
@@ -11,7 +11,9 @@ import { cleanupOrphanSockets, deriveUuid, getSocketPath, probeSocket } from './
 import { InternalViewer, type SessionListItem } from './webview_viewer'
 
 const MIN_CLI_VERSION = '0.1.18'
-const CLI_NPM_URL = 'https://www.npmjs.com/package/@yejianfei.billy/subagent-cli'
+const CLI_NPM_PKG = '@yejianfei.billy/subagent-cli'
+const CLI_NPM_URL = `https://www.npmjs.com/package/${CLI_NPM_PKG}`
+const CLI_NPM_LATEST_URL = `https://registry.npmjs.org/${CLI_NPM_PKG}/latest`
 
 let ipcServer: IPCServer | undefined
 
@@ -22,12 +24,21 @@ interface SocketChoice {
 }
 
 /**
- * Pick a socket path:
- *  - First try the stable hash(workspace) path — claim it if the previous server is dead.
- *  - Otherwise (another window in the same workspace is alive) generate a random fallback.
+ * Pick a socket path. The uuid is `<sha1(workspace)[:8]>_<VSCODE_PID>` so the
+ * CLI can rediscover this window's socket by globbing
+ * `subagent-cli_*_<VSCODE_PID>.sock` when SUBAGENT_VSCODE_IPC isn't propagated
+ * (e.g. spawned by Claude Code). VSCODE_PID is the editor main-process pid:
+ * unique per window and stable across reloads.
+ *
+ *  - Try the workspace+pid path — claim it if the previous server is dead.
+ *  - On the rare collision (same window's socket still bound, e.g. a lingering
+ *    reload) randomize the hash segment but keep the `_<VSCODE_PID>` suffix so
+ *    glob discovery still matches.
  */
 async function pickSocketPath(seed: string): Promise<SocketChoice> {
-  const stableUuid = deriveUuid(seed)
+  const pid = process.env.VSCODE_PID
+  const withPid = (base: string): string => (pid ? `${base}_${pid}` : base)
+  const stableUuid = withPid(deriveUuid(seed))
   const stablePath = getSocketPath(stableUuid)
   const alive = await probeSocket(stablePath)
   if (!alive) {
@@ -36,7 +47,7 @@ async function pickSocketPath(seed: string): Promise<SocketChoice> {
     }
     return { path: stablePath, uuid: stableUuid, fallback: false }
   }
-  const fallbackUuid = crypto.randomUUID().slice(0, 8)
+  const fallbackUuid = withPid(crypto.randomUUID().slice(0, 8))
   return { path: getSocketPath(fallbackUuid), uuid: fallbackUuid, fallback: true }
 }
 
@@ -330,7 +341,73 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   })
   context.subscriptions.push(viewerCmd)
 
+  // On startup, check npm for a newer CLI release and offer to upgrade. Opens
+  // a terminal running the global npm install on confirm. Skipped when:
+  //  - the user disabled it (`checkForUpdates`),
+  //  - `cli.path` is set (custom/dev build — npm upgrade wouldn't apply),
+  //  - the CLI isn't healthy, or the registry is unreachable.
+  // "Later" is remembered per-version so the same release doesn't nag again.
+  const DISMISSED_UPDATE_KEY = 'dismissedUpdateVersion'
+  const fetchLatestCliVersion = async (): Promise<string | undefined> => {
+    try {
+      const res = await fetch(CLI_NPM_LATEST_URL)
+      if (!res.ok) {
+        log(`update check: registry responded ${res.status}`)
+        return undefined
+      }
+      const body = (await res.json()) as { version?: string }
+      return body.version
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      log(`update check failed: ${message}`)
+      return undefined
+    }
+  }
+  const maybePromptCliUpdate = async (): Promise<void> => {
+    const cfg = vscode.workspace.getConfiguration('subagent-cli')
+    if (!cfg.get<boolean>('checkForUpdates', true)) return
+    if (cfg.get<string>('cli.path', '')) return
+    if (currentHealth.status !== 'ok' || !currentHealth.version) return
+    const latest = await fetchLatestCliVersion()
+    if (!latest || compareSemver(latest, currentHealth.version) <= 0) return
+    if (context.globalState.get<string>(DISMISSED_UPDATE_KEY) === latest) return
+    const upgrade = vscode.l10n.t('Upgrade')
+    const later = vscode.l10n.t('Later')
+    const choice = await vscode.window.showInformationMessage(
+      vscode.l10n.t('Subagent CLI {0} is available (current {1}).', latest, currentHealth.version),
+      upgrade,
+      later,
+    )
+    if (choice === upgrade) {
+      const term = vscode.window.createTerminal('Subagent CLI Update')
+      term.show()
+      term.sendText(`npm install -g ${CLI_NPM_PKG}@latest`)
+      return
+    }
+    if (choice === later) await context.globalState.update(DISMISSED_UPDATE_KEY, latest)
+  }
+
+  // Re-create terminals for this window's still-running sessions after a window
+  // reload. The daemon scopes /api/sessions to the caller's ipc_path (via the
+  // X-Subagent-Cli-IPC header), and our socket name is stable across reload
+  // (workspace hash + VSCODE_PID), so the same sessions match. On a fresh
+  // editor launch VSCODE_PID differs → no sessions match → nothing reopens.
+  const reattachWindowSessions = async (): Promise<void> => {
+    if (currentHealth.status !== 'ok') return
+    try {
+      const sessions = await fetchSessions()
+      sessions
+        .filter((s) => s.state !== 'CLOSED' && !sessionTerminals.has(s.session))
+        .forEach((s) => openSessionTerminalById(s.session, s.subagent ?? 'subagent'))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      log(`reattach: ${message}`)
+    }
+  }
+
   await refreshHealth()
+  void maybePromptCliUpdate()
+  void reattachWindowSessions()
 
   // Periodically refresh the RUNNING count for this window. Errors are caught
   // inside pollRunningCount itself so a transient daemon outage doesn't crash
