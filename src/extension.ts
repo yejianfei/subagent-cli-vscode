@@ -65,6 +65,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   context.environmentVariableCollection.replace('SUBAGENT_VSCODE_UUID', uuid)
   context.environmentVariableCollection.replace('SUBAGENT_VSCODE_IPC', socketPath)
+  // Re-inject VSCODE_PID into integrated terminals. VS Code (and Trae) strip
+  // this internal var from terminal env, but the CLI's socket discovery globs
+  // `subagent-cli_*_<VSCODE_PID>.sock` as a fallback when SUBAGENT_VSCODE_IPC
+  // is stale/missing — without VSCODE_PID it can never match. The value we
+  // re-inject is the same one VS Code keeps in the extension-host process.env.
+  const vscodePid = process.env.VSCODE_PID
+  vscodePid && context.environmentVariableCollection.replace('VSCODE_PID', vscodePid)
   context.environmentVariableCollection.description = vscode.l10n.t(
     'Subagent CLI: IPC socket may change after reload. Click Relaunch if a terminal becomes stale.',
   )

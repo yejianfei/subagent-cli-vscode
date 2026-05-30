@@ -2,6 +2,10 @@
 
 All notable changes to this extension will be documented in this file.
 
+## [0.1.3] - 2026-05-30
+
+- Re-inject `VSCODE_PID` into integrated terminal env via `environmentVariableCollection`. VS Code (and Trae) strip this internal variable from terminal env, which made the CLI's `subagent-cli_*_<VSCODE_PID>.sock` glob fallback never match — so Claude-Code-spawned subagents (whose `SUBAGENT_VSCODE_IPC` may be stale in long-lived sessions) could not discover the live socket and no terminal was created. Restoring the value the extension host already holds lets the glob fallback work on both Trae and VS Code.
+
 ## [0.1.2] - 2026-05-25
 
 - Socket name now encodes the editor's `VSCODE_PID` (`subagent-cli_<workspace-hash>_<pid>.sock`). When `SUBAGENT_VSCODE_IPC` isn't propagated to a spawned CLI (e.g. processes launched by Claude Code), the CLI can rediscover this window's socket by globbing `subagent-cli_*_<VSCODE_PID>.sock`. Requires a CLI build with glob fallback.

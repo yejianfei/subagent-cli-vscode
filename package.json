@@ -2,7 +2,7 @@
   "name": "subagent-cli-vscode",
   "displayName": "Subagent CLI",
   "description": "Render subagent-cli child agent TUIs inside VS Code terminal tabs.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "yejianfei-billy",
   "private": true,
   "license": "Apache-2.0",
